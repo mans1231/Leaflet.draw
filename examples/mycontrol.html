@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Leaflet.draw drawing and editing tools</title>
+
+	<link rel="stylesheet" href="leaflet/leaflet.css" />
+	<!--[if lte IE 8]><link rel="stylesheet" href="leaflet/leaflet.ie.css" /><![endif]-->
+	<link rel="stylesheet" href="leaflet.draw/leaflet.draw.css" />
+	<!--[if lte IE 8]><link rel="stylesheet" href="leaflet.draw/leaflet.draw.ie.css" /><![endif]-->
+
+	<script src="leaflet/leaflet-src.js"></script>
+
+	<script src="leaflet.draw/leaflet.draw-src.js"></script>
+	
+	<script src="jquery.js"></script>
+
+</head>
+<body>
+	<button id="drawMarker">drawMarker</button>
+	<button id="drawLine">drawLine</button>
+	<button id="drawPolygon">drawPolygon</button>
+	<button id="stopDraw" onclick="stopDraw()">stopDraw</button>
+	
+	<div id="map" style="width: 800px; height: 600px; border: 1px solid #ccc"></div>
+
+	<script>
+	var drawMarkerButton = document.getElementById('drawMarker');
+	drawMarkerButton.addEventListener('click', function(){
+		stopDraw();
+		$("#map").css("cursor", "crosshair");
+		map.on('click', addLatLngToMarker); //Listen for clicks on map.
+	});
+	function addLatLngToMarker(clickEventData){
+		$("#map").css("cursor", "default");
+		LrMarker = new L.marker(clickEventData.latlng).addTo(map);
+		map.off('click', addLatLngToMarker);
+		drawnItems.addLayer(LrMarker);//присоединяю к редактируемому слою
+		L.DomUtil.addClass(LrMarker._icon, 'leaflet-edit-marker-selected');
+		LrMarker.dragging.enable();
+	}
+
+	var drawPolygonButton = document.getElementById('drawPolygon');
+	drawPolygonButton.addEventListener('click', function(){
+		stopDraw();
+		$("#map").css("cursor", "crosshair");
+		currentPolygon = new L.polygon([[0, 0]]).addTo(map);
+		map.on('click', addLatLngToPolygon); //Listen for clicks on map.
+	});
+	function addLatLngToPolygon(clickEventData){
+		currentPolygon.editing.disable();
+		currentPolygon.addLatLng(clickEventData.latlng);
+		drawnItems.addLayer(currentPolygon);//присоединяю к редактируемому слою
+		currentPolygon.editing.enable();
+	}
+	
+	var drawLineButton = document.getElementById('drawLine');
+	drawLineButton.addEventListener('click', function(){
+		stopDraw();
+		$("#map").css("cursor", "crosshair");
+		LrLine = new L.Polyline({}).addTo(map);
+		map.on('click', addLatLngToLine); //Listen for clicks on map.
+	});
+	function addLatLngToLine(clickEventData){
+		LrLine.editing.disable();
+		LrLine.addLatLng(clickEventData.latlng);
+		drawnItems.addLayer(LrLine);//присоединяю к редактируемому слою
+		LrLine.editing.enable();
+	}
+	
+	function stopDraw(){
+		$("#map").css("cursor", "default");
+		map.off('click', addLatLngToMarker);
+		map.off('click', addLatLngToLine); //Stop listening for clicks on map.
+		map.off('click', addLatLngToPolygon); //Stop listening for clicks on map.
+		if(typeof(LrLine)!="undefined"){LrLine.editing.disable();}
+		if(typeof(currentPolygon)!="undefined"){currentPolygon.editing.disable();}
+		vv=typeof(LrMarker);
+		if(typeof(LrMarker)!="undefined"){
+			LrMarker.dragging.disable();
+			L.DomUtil.removeClass(LrMarker._icon, 'leaflet-edit-marker-selected');
+		}
+	}
+
+
+	var cloudmadeUrl = 'http://{s}.tile.cloudmade.com/BC9A493B41014CAABB98F0471D759707/997/256/{z}/{x}/{y}.png',
+		cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18}),
+		map = new L.Map('map', {layers: [cloudmade], center: new L.LatLng(-37.7772, 175.2756), zoom: 15 });
+	//создаю редактируемый слой
+	var drawnItems = new L.FeatureGroup();
+	map.addLayer(drawnItems);
+
+	var drawControl = new L.Control.Draw({
+		draw: {
+			polygon: false,
+			rectangle: false,
+			polyline: false,
+			circle: false,
+			marker: false},
+		edit: {
+			featureGroup: drawnItems
+		}
+	});
+	map.addControl(drawControl);
+
+	map.on('draw:created', function (e) {
+		var type = e.layerType, layer = e.layer;
+
+		if (type === 'marker') {
+			layer.bindPopup('A popup!');
+		}
+		
+		myGeoObj=layer.toGeoJSON();//объект в формате GeoJSON
+		strGeoObj=JSON.stringify(myGeoObj);//преобразую в строку GeoJSON
+		alert(strGeoObj);
+		
+		drawnItems.addLayer(layer);
+	});
+	
+	map.on('draw:edited', function (e) {
+		var layers = e.layers;
+		layers.eachLayer(function (layer) {
+			//do whatever you want, most likely save back to db
+			myGeoObj=layers.toGeoJSON();
+			strGeoObj=JSON.stringify(myGeoObj);//преобразую в строку GeoJSON
+			alert(strGeoObj);
+			myGeoObj=JSON.parse(strGeoObj);//преобразование строки в обьект GeoJSON
+			//L.geoJson(myGeoObj).addTo(map);
+			
+		});
+	});
+	</script>
+</body>
+</html>
